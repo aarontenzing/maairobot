@@ -3,8 +3,8 @@ from torchvision import models
 from collections import OrderedDict
 
 # Define paths and parameters
-checkpoint_path = 'models\mobilenet_v3_small_weights_best_acc.tar'  # Path to the PyTorch checkpoint file
-onnx_model_path = 'models\mobilenet_v3_small_weights_best_acc.onnx'  # Desired output path for the ONNX model
+checkpoint_path = 'resnet50_weights_best_acc.tar'  # Path to the PyTorch checkpoint file
+onnx_model_path = 'export_model\resnet50_weights_best_acc.onnx'  # Desired output path for the ONNX model
 num_classes = 1081  # Number of classes for the Pl@ntNet-300K dataset
 
 # Load the model (ResNet-50) with the appropriate number of classes
@@ -12,7 +12,7 @@ model = models.resnet50(num_classes=num_classes)
 
 # Load the checkpoint
 try:
-    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    checkpoint = torch.load(checkpoint_path, map_location='gpu')
     state_dict = checkpoint.get('state_dict', checkpoint)  # Use 'state_dict' if it exists, otherwise the checkpoint itself
 
     # Adjust state_dict keys if necessary (e.g., remove 'module.' prefix)
