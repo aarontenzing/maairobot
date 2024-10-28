@@ -4,6 +4,20 @@
 {% block content %}
 
 <h1>2D embeddings space</h1>
-<img src="{{ url_for('static', filename='images/embeddings_plot.png') }}" alt="Centered Logo" style="width: 900px; height: auto;"> 
+
+<form action="{{ url_for('toggle') }}" method="post">
+    <button type="submit">{{ "Show initial samples" }}</button>
+</form>
+
+<img id="embeddings_plot" src="{{ url_for('static', filename='images/embeddings_plot.png') }}" alt="Embeddings Plot" width="900">
+
+<script>
+    // Refresh the image every 5 seconds
+    setInterval(function() {
+        const img = document.getElementById('embeddings_plot');
+        // Update the image src with a new timestamp to prevent caching
+        img.src = "{{ url_for('static', filename='images/embeddings_plot.png') }}" + "?t=" + new Date().getTime();
+    }, 5000); // Refresh every 5 seconds
+</script>
 
 {% endblock %}
