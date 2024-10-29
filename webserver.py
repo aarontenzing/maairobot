@@ -13,7 +13,6 @@ import torch
 from torchvision.models import resnet50
 from torchvision import transforms
 from collections import OrderedDict
-
 import json
 
 
@@ -29,6 +28,16 @@ toggle_samples = False
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
+def clear_images_in_directory(directory_path):
+    for filename in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, filename)
+        if os.path.isfile(file_path):
+            try:
+                os.remove(file_path)
+                print(f'Deleted: {file_path}')
+            except Exception as e:
+                print(f'Error deleting {file_path}: {e}')
 
 def encoder(model, input_tensor):
     model.eval()  # Set the model to evaluation mode
@@ -74,23 +83,23 @@ def preprocess_image(image):
     return image_tensor 
         
 def load_img(img_path, target_size=None):
-    """Load and resize an image."""
     img = Image.open(img_path)
     if target_size:
         img = img.resize(target_size)
     return np.array(img)  # Convert to a numpy array for matplotlib
         
 def visualize_embeddings(embeddings, samples_vis=False):
-    print("Visualize embedding")
-    embeddings = np.array(embeddings)
-    features = tsne.fit_transform(embeddings)  # Fit the t-SNE model to the embeddings
-    embeddings = embeddings.tolist()
+    print("Visualize embeddings...")
+    embeddings = np.array(embeddings) # nodig om tsne toe te passen
+    features = tsne.fit_transform(embeddings) # Fit the t-SNE model to the embeddings
+    embeddings = embeddings.tolist() # terug naar lijst
 
     # Create a scatter plot
     plt.figure(figsize=(10, 8))
     
     if samples_vis:
         samples = sorted(os.listdir("samples"), key=lambda x: int(x.split('.')[0]))
+        print("Images in sample directory: ", samples)
 
         # Loop through each point and add the corresponding thumbnail
         for idx, point in enumerate(features[:length_intial_embeddings]):
@@ -110,7 +119,7 @@ def visualize_embeddings(embeddings, samples_vis=False):
 
     # Do for captured frames    
     frames = sorted(os.listdir(UPLOAD_FOLDER), key=lambda x: int(x.split('.')[0]))
-    print(frames)
+    print("Images in frames directory: ", frames)
 
     # Loop through each point and add the corresponding thumbnail
     for idx, point in enumerate(features[length_intial_embeddings:]):
@@ -137,8 +146,6 @@ def visualize_embeddings(embeddings, samples_vis=False):
     plot_image_path = os.path.join('static/images', 'embeddings_plot.png')  # Save in the static folder
     plt.savefig(plot_image_path)
     plt.close()
-
-    return
         
 @app.route("/")
 def home():
@@ -175,26 +182,36 @@ def plot():
     return redirect(url_for('home'))       
 
 @app.route('/reset', methods=['POST'])
-def reset_embeddings():
+def reset():
+    global embeddings
     # Remove embeddings from list
-    # Clear directory of frames
-    pass
+    print(f"Resizing embeddings vector with length {len(embeddings)}, to initial length of {length_intial_embeddings}.")
+    embeddings = embeddings[:length_intial_embeddings]
+    clear_images_in_directory(UPLOAD_FOLDER) # Clear directory of frames
+    visualize_embeddings(embeddings, samples_vis=toggle_samples) 
+    return redirect(url_for('home'))       
 
 if __name__ == "__main__":
     
     model = load_model() # Load the PlantNet model and weights
     
-    tsne = TSNE(n_components=2, perplexity=25, random_state=42, max_iter=1000)
+    tsne = TSNE(n_components=2, perplexity=5, random_state=42, max_iter=1000) # Initialize tsne
 
-    # Load initial datapoints voor TSNE
+    # Load sample datapoints voor tsne
     with open("embeddings.json", 'r') as json_file:
         json_data = json.load(json_file)
-    
-    embeddings = [item['feature'] for item in json_data] 
-    length_intial_embeddings = len(embeddings)
 
-    size = sys.getsizeof(embeddings)
-    print("Total size list in bytes:", size)
+    # Check available smaples 
+    embeddings = [json_data[idx]['feature'] for idx in range(len(os.listdir("samples")))] 
+
+    length_intial_embeddings = len(embeddings)
+    print(f"Length of initial embedding vector with samples: {length_intial_embeddings}")
+
+    # size = sys.getsizeof(embeddings)
+    # print("Total size list in bytes:", size)
+
+    # Remove captured frames
+    clear_images_in_directory(UPLOAD_FOLDER)
 
     visualize_embeddings(embeddings, samples_vis=False) 
     
