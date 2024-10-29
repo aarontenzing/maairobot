@@ -194,11 +194,12 @@ def reset():
 if __name__ == "__main__":
     
     model = load_model() # Load the PlantNet model and weights
+    sample_embeddings = "embeddings.json"
     
-    tsne = TSNE(n_components=2, perplexity=5, random_state=42, max_iter=1000) # Initialize tsne
+    tsne = TSNE(n_components=2, perplexity=25, random_state=42, max_iter=1000) # Initialize tsne
 
     # Load sample datapoints voor tsne
-    with open("embeddings.json", 'r') as json_file:
+    with open(sample_embeddings, 'r') as json_file:
         json_data = json.load(json_file)
 
     # Check available smaples 
