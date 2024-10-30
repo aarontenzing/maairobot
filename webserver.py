@@ -136,7 +136,7 @@ def visualize_embeddings(embeddings, samples_vis=False):
             
             # Add the annotation box to the plot
             plt.gca().add_artist(ab)
-        
+    
     plt.title("Image Embeddings")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
