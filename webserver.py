@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, flash, request, render_template, redirect, url_for
 from werkzeug.utils import secure_filename
 from sklearn.manifold import TSNE
 import matplotlib
@@ -14,12 +14,20 @@ from torchvision.models import resnet50
 from torchvision import transforms
 from collections import OrderedDict
 import json
+import plotly.graph_objs as go
+import plotly.offline as pyo
+
+
+# curl -X POST http://127.0.0.1:5000/upload -F "frame=@/home/tenzing/Pictures/flower2.jpg"
+
+# op de client run: sudo python3 run.py resnet50_retrained_grass_flower.rknn 0
 
 
 app = Flask(__name__)
 
 model = None
 embeddings = [] # Store the embeddings of the frames
+class_names = [] # Store the class names of the frames (0 is flower and 1 is grass)
 length_intial_embeddings = 0
 CHECKPOINT_PATH = 'models/resnet50_weights_best_acc.tar'  # Path to the PyTorch checkpoint file
 NUM_CLASSES = 1081  # Number of classes for the Pl@ntNet-300K dataset
@@ -108,7 +116,7 @@ def visualize_embeddings(embeddings, samples_vis=False):
                 plt.scatter(x, y, alpha=0)  # Hide the original points
                     
                 # Load and create thumbnail from images in samples directory
-                img = load_img(os.path.join("samples", samples[idx]), target_size=(50, 50))  # Resize thumbnail
+                img = load_img(os.path.join("samples", samples[idx]), target_size=(80, 80))  # Resize thumbnail
                 imagebox = OffsetImage(img, zoom=0.8)  # Adjust zoom as needed
                 
                 # Create an annotation box with the thumbnail
@@ -128,7 +136,7 @@ def visualize_embeddings(embeddings, samples_vis=False):
             plt.scatter(x, y, alpha=0)  # Hide the original points
                 
             # Load and create thumbnail for the image
-            img = load_img(os.path.join("frames", frames[idx]), target_size=(50, 50))  # Resize thumbnail
+            img = load_img(os.path.join("frames", frames[idx]), target_size=(80, 80))  # Resize thumbnail
             imagebox = OffsetImage(img, zoom=0.8)  # Adjust zoom as needed
             
             # Create an annotation box with the thumbnail
@@ -160,7 +168,6 @@ def toggle():
     visualize_embeddings(embeddings, samples_vis=toggle_samples)
     return redirect(url_for('home'))   
 
-
 @app.route('/upload', methods=['POST', 'GET'])
 def plot():
     global toggle_samples
@@ -168,14 +175,22 @@ def plot():
     if 'frame' not in request.files:
         print("No file part") # Returns an error if 'frame' is not in files
     else: 
+        class_name = int(request.form['class']) # Get the class name from the form
+        class_names.append(class_name)
+
         frame = request.files['frame']
+        print(f"Class name: {class_name}")
+    
         filename = str(len(embeddings)-length_intial_embeddings) + ".jpg" 
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         frame.save(file_path)
+
         frame = Image.open(file_path)
         frame = preprocess_image(frame)
+
         embedding = encoder(model, frame)
         embeddings.append(embedding) # Pass frame (image) through the PlantNet network and retrieve the embedding
+        
 
     visualize_embeddings(embeddings, samples_vis=toggle_samples) 
     
@@ -184,19 +199,106 @@ def plot():
 @app.route('/reset', methods=['POST'])
 def reset():
     global embeddings
+    global class_names
+    
+    if len(embeddings) == length_intial_embeddings:
+        print("No embeddings to reset.")
+        return redirect(url_for('home'))
+    
     # Remove embeddings from list
     print(f"Resizing embeddings vector with length {len(embeddings)}, to initial length of {length_intial_embeddings}.")
     embeddings = embeddings[:length_intial_embeddings]
+    class_names = []
     clear_images_in_directory(UPLOAD_FOLDER) # Clear directory of frames
     visualize_embeddings(embeddings, samples_vis=toggle_samples) 
     return redirect(url_for('home'))       
+
+@app.route('/visualize_3d', methods=['GET'])
+def visualize_3d():
+    print("Visualize embeddings...")
+    global embeddings
+    global class_names
+
+    if len(class_names) == 0:
+        print("No embeddings to visualize.")
+        return redirect(url_for('home'))  
+
+    embeddings = np.array(embeddings)  # This line ensures embeddings is a NumPy array
+
+    features = tsne_3d.fit_transform(embeddings) # Fit the t-SNE model to the embeddings
+    features = features[length_intial_embeddings:]  # Exclude the initial embeddings
+
+    embeddings = embeddings.tolist()  # Convert embeddings back to a list
+
+    class_names = np.array(class_names)  # This line ensures class_names is a NumPy array
+    
+    # Separate features based on labels
+    flower_points = features[class_names == 0]  # Red points (Flower)
+    grass_points = features[class_names == 1]  # Green points (Grass)
+
+    class_names = class_names.tolist()  # Convert class_names back to a list
+
+    # Create a 3D scatter plot using the transformed features
+    fig = go.Figure()
+
+    # Add trace for "Grass" points
+    fig.add_trace(go.Scatter3d(
+        x=grass_points[:, 0],
+        y=grass_points[:, 1],
+        z=grass_points[:, 2],
+        mode='markers',
+        marker=dict(
+            size=5,
+            color='rgba(0, 255, 0, 0.5)',  # Green color for grass
+            line=dict(width=1)
+        ),
+        name='Grass'  # Label in the legend
+    ))
+
+    # Add trace for "Flower" points
+    fig.add_trace(go.Scatter3d(
+        x=flower_points[:, 0],
+        y=flower_points[:, 1],
+        z=flower_points[:, 2],
+        mode='markers',
+        marker=dict(
+            size=5,
+            color='rgba(255, 0, 0, 0.5)',  # Red color for flowers
+            line=dict(width=1)
+        ),
+        name='Flower'  # Label in the legend
+    ))
+
+    # Update layout to add title and axis labels
+    fig.update_layout(
+        title="3D Visualization of Embeddings: Grass vs. Flower",  # Plot title
+        scene=dict(
+            xaxis_title="Dimension 1",  # X-axis label
+            yaxis_title="Dimension 2",  # Y-axis label
+            zaxis_title="Dimension 3"   # Z-axis label
+        ),
+        width=1500,  # Set figure width
+        height=900,  # Set figure height
+        showlegend=True,  # Ensure the legend is displayed
+        legend=dict(
+            title="Legend",
+            itemsizing="constant"
+        )
+    )
+
+    # Generate HTML for the plot
+    plot_html = fig.to_html(full_html=False)
+
+    return render_template('3d_plot.html', plot_html=plot_html)
+
 
 if __name__ == "__main__":
     
     model = load_model() # Load the PlantNet model and weights
     sample_embeddings = "embeddings.json"
     
-    tsne = TSNE(n_components=2, perplexity=25, random_state=42, max_iter=1000) # Initialize tsne
+    tsne = TSNE(n_iter=1000, perplexity=30, learning_rate=200, init='pca', random_state=42)
+    tsne_3d = TSNE(n_components=3, perplexity=25, random_state=42) # Initialize tsne 3d
 
     # Load sample datapoints voor tsne
     with open(sample_embeddings, 'r') as json_file:
@@ -216,4 +318,4 @@ if __name__ == "__main__":
 
     visualize_embeddings(embeddings, samples_vis=False) 
     
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)
