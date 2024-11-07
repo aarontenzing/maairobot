@@ -19,17 +19,18 @@ import plotly.offline as pyo
 
 
 # curl -X POST http://127.0.0.1:5000/upload -F "frame=@/home/tenzing/Pictures/flower2.jpg"
-
 # op de client run: sudo python3 run.py resnet50_retrained_grass_flower.rknn 0
 
 
 app = Flask(__name__)
 
 model = None
+CHECKPOINT_PATH = 'models/resnet50_weights_best_acc.tar'  # Path to the PyTorch checkpoint file
+
 embeddings = [] # Store the embeddings of the frames
 class_names = [] # Store the class names of the frames (0 is flower and 1 is grass)
 length_intial_embeddings = 0
-CHECKPOINT_PATH = 'models/resnet50_weights_best_acc.tar'  # Path to the PyTorch checkpoint file
+
 NUM_CLASSES = 1081  # Number of classes for the Pl@ntNet-300K dataset
 UPLOAD_FOLDER = 'frames' # Folder to store the uploaded frames
 toggle_samples = False
@@ -116,7 +117,7 @@ def visualize_embeddings(embeddings, samples_vis=False):
                 plt.scatter(x, y, alpha=0)  # Hide the original points
                     
                 # Load and create thumbnail from images in samples directory
-                img = load_img(os.path.join("samples", samples[idx]), target_size=(80, 80))  # Resize thumbnail
+                img = load_img(os.path.join("samples", samples[idx]), target_size=(60, 60))  # Resize thumbnail
                 imagebox = OffsetImage(img, zoom=0.8)  # Adjust zoom as needed
                 
                 # Create an annotation box with the thumbnail
@@ -129,21 +130,22 @@ def visualize_embeddings(embeddings, samples_vis=False):
     frames = sorted(os.listdir(UPLOAD_FOLDER), key=lambda x: int(x.split('.')[0]))
     print("Images in frames directory: ", frames)
 
-    # Loop through each point and add the corresponding thumbnail
-    for idx, point in enumerate(features[length_intial_embeddings:]):
-            x, y = point[0], point[1]
+    if len(frames) is not 0:
+        # Loop through each point and add the corresponding thumbnail
+        for idx, point in enumerate(features[length_intial_embeddings:]):
+                x, y = point[0], point[1]
+                    
+                plt.scatter(x, y, alpha=0)  # Hide the original points
+                    
+                # Load and create thumbnail for the image
+                img = load_img(os.path.join("frames", frames[idx]), target_size=(60, 60))  # Resize thumbnail
+                imagebox = OffsetImage(img, zoom=0.8)  # Adjust zoom as needed
                 
-            plt.scatter(x, y, alpha=0)  # Hide the original points
+                # Create an annotation box with the thumbnail
+                ab = AnnotationBbox(imagebox, (x, y), frameon=False, pad=0.1)
                 
-            # Load and create thumbnail for the image
-            img = load_img(os.path.join("frames", frames[idx]), target_size=(80, 80))  # Resize thumbnail
-            imagebox = OffsetImage(img, zoom=0.8)  # Adjust zoom as needed
-            
-            # Create an annotation box with the thumbnail
-            ab = AnnotationBbox(imagebox, (x, y), frameon=False, pad=0.1)
-            
-            # Add the annotation box to the plot
-            plt.gca().add_artist(ab)
+                # Add the annotation box to the plot
+                plt.gca().add_artist(ab)
     
     plt.title("Image Embeddings")
     plt.xlabel("Dimension 1")
@@ -190,7 +192,6 @@ def plot():
 
         embedding = encoder(model, frame)
         embeddings.append(embedding) # Pass frame (image) through the PlantNet network and retrieve the embedding
-        
 
     visualize_embeddings(embeddings, samples_vis=toggle_samples) 
     
@@ -205,7 +206,7 @@ def reset():
         print("No embeddings to reset.")
         return redirect(url_for('home'))
     
-    # Remove embeddings from list
+    # Resetting the embeddings and class names
     print(f"Resizing embeddings vector with length {len(embeddings)}, to initial length of {length_intial_embeddings}.")
     embeddings = embeddings[:length_intial_embeddings]
     class_names = []
@@ -291,14 +292,13 @@ def visualize_3d():
 
     return render_template('3d_plot.html', plot_html=plot_html)
 
-
 if __name__ == "__main__":
     
     model = load_model() # Load the PlantNet model and weights
     sample_embeddings = "embeddings.json"
     
-    tsne = TSNE(n_iter=1000, perplexity=30, learning_rate=200, init='pca', random_state=42)
-    tsne_3d = TSNE(n_components=3, perplexity=25, random_state=42) # Initialize tsne 3d
+    tsne = TSNE(n_components=2, perplexity=25, random_state=42)
+    tsne_3d = TSNE(n_components=3, perplexity=25, random_state=42)
 
     # Load sample datapoints voor tsne
     with open(sample_embeddings, 'r') as json_file:
@@ -309,13 +309,9 @@ if __name__ == "__main__":
 
     length_intial_embeddings = len(embeddings)
     print(f"Length of initial embedding vector with samples: {length_intial_embeddings}")
+    
+    clear_images_in_directory(UPLOAD_FOLDER) # Remove captured frames from the directory
 
-    # size = sys.getsizeof(embeddings)
-    # print("Total size list in bytes:", size)
-
-    # Remove captured frames
-    clear_images_in_directory(UPLOAD_FOLDER)
-
-    visualize_embeddings(embeddings, samples_vis=False) 
+    visualize_embeddings(embeddings, samples_vis=False) # Visualize the embeddings first
     
     app.run(host="0.0.0.0", debug=True)
