@@ -1,6 +1,10 @@
 from flask import Flask, flash, request, render_template, redirect, url_for
 from werkzeug.utils import secure_filename
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend
 import matplotlib.pyplot as plt
@@ -29,8 +33,11 @@ CHECKPOINT_PATH = 'models/resnet50_weights_best_acc.tar'  # Path to the PyTorch 
 
 embeddings = [] # Store the embeddings of the frames
 class_names = [] # Store the class names of the frames (0 is flower and 1 is grass)
+class_color = {0: 'red', 1: 'green'} # Color for each class
 length_intial_embeddings = 0
 
+
+sliding_window_size = 20 # Number of frames to keep in the sliding window
 NUM_CLASSES = 1081  # Number of classes for the Pl@ntNet-300K dataset
 UPLOAD_FOLDER = 'frames' # Folder to store the uploaded frames
 toggle_samples = False
@@ -99,12 +106,15 @@ def load_img(img_path, target_size=None):
         
 def visualize_embeddings(embeddings, samples_vis=False):
     print("Visualize embeddings...")
-    embeddings = np.array(embeddings) # nodig om tsne toe te passen
-    features = tsne.fit_transform(embeddings) # Fit the t-SNE model to the embeddings
-    embeddings = embeddings.tolist() # terug naar lijst
+    
+    # embeddings = np.array(embeddings) # nodig om tsne toe te passen
+    # features = tsne.fit_transform(embeddings) # Fit the t-SNE model to the embeddings
+    # embeddings = embeddings.tolist() # terug naar lijst
+
+    features = pca.transform(embeddings)  # Transform the embeddings using PCA
 
     # Create a scatter plot
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(10, 10))
     
     if samples_vis:
         samples = sorted(os.listdir("samples"), key=lambda x: int(x.split('.')[0]))
@@ -128,21 +138,24 @@ def visualize_embeddings(embeddings, samples_vis=False):
 
     # Do for captured frames    
     frames = sorted(os.listdir(UPLOAD_FOLDER), key=lambda x: int(x.split('.')[0]))
-    print("Images in frames directory: ", frames)
+    # print("Images in frames directory: ", frames)
 
-    if len(frames) is not 0:
+    if len(frames) != 0:
         # Loop through each point and add the corresponding thumbnail
         for idx, point in enumerate(features[length_intial_embeddings:]):
-                x, y = point[0], point[1]
-                    
-                plt.scatter(x, y, alpha=0)  # Hide the original points
-                    
-                # Load and create thumbnail for the image
-                img = load_img(os.path.join("frames", frames[idx]), target_size=(60, 60))  # Resize thumbnail
-                imagebox = OffsetImage(img, zoom=0.8)  # Adjust zoom as needed
                 
-                # Create an annotation box with the thumbnail
-                ab = AnnotationBbox(imagebox, (x, y), frameon=False, pad=0.1)
+                x, y = point[0], point[1]
+                plt.scatter(x, y, alpha=0)  # Hide the original points
+
+                img = load_img(os.path.join("frames", frames[idx]), target_size=(60, 60)) 
+                imagebox = OffsetImage(img, zoom=0.8) 
+
+                if idx == len(features[length_intial_embeddings:]) - 1:
+                    border_color = class_color[class_names[idx]]
+                    ab = AnnotationBbox(imagebox, (x, y), frameon=True, pad=0.1, bboxprops=dict(edgecolor=border_color, linewidth=2))
+
+                else:
+                    ab = AnnotationBbox(imagebox, (x, y), frameon=False, pad=0.1)
                 
                 # Add the annotation box to the plot
                 plt.gca().add_artist(ab)
@@ -156,7 +169,7 @@ def visualize_embeddings(embeddings, samples_vis=False):
     plot_image_path = os.path.join('static/images', 'embeddings_plot.png')  # Save in the static folder
     plt.savefig(plot_image_path)
     plt.close()
-        
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -166,7 +179,7 @@ def toggle():
     global toggle_samples
     global embeddings
     toggle_samples = not toggle_samples
-    print(f"Toggled: is_on is now {toggle_samples}")
+    # print(f"Toggled: is_on is now {toggle_samples}")
     visualize_embeddings(embeddings, samples_vis=toggle_samples)
     return redirect(url_for('home'))   
 
@@ -192,6 +205,14 @@ def plot():
 
         embedding = encoder(model, frame)
         embeddings.append(embedding) # Pass frame (image) through the PlantNet network and retrieve the embedding
+
+        # Check if the sliding window size is reached
+        if len(embeddings) == (length_intial_embeddings + sliding_window_size): 
+            oldest_frame = sorted(os.listdir(UPLOAD_FOLDER), key=lambda x: int(x.split('.')[0]))[0] # Remove oldest from frames directory
+            os.remove(os.path.join(UPLOAD_FOLDER, oldest_frame)) # Remove oldest from frames directory
+            print(f"Removed oldest frame: {oldest_frame}")
+            embeddings.pop(length_intial_embeddings) # Remove oldest from embeddings list
+            class_names.pop(0) # Remove oldest from class names list
 
     visualize_embeddings(embeddings, samples_vis=toggle_samples) 
     
@@ -299,6 +320,7 @@ if __name__ == "__main__":
     
     tsne = TSNE(n_components=2, perplexity=25, random_state=42)
     tsne_3d = TSNE(n_components=3, perplexity=25, random_state=42)
+    pca = PCA(n_components=2)
 
     # Load sample datapoints voor tsne
     with open(sample_embeddings, 'r') as json_file:
@@ -309,7 +331,10 @@ if __name__ == "__main__":
 
     length_intial_embeddings = len(embeddings)
     print(f"Length of initial embedding vector with samples: {length_intial_embeddings}")
-    
+
+    pca = PCA(n_components=2)
+    pca.fit(embeddings)
+        
     clear_images_in_directory(UPLOAD_FOLDER) # Remove captured frames from the directory
 
     visualize_embeddings(embeddings, samples_vis=False) # Visualize the embeddings first
