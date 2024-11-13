@@ -31,10 +31,9 @@ UPLOAD_FOLDER = 'frames' # Folder to store the uploaded frames
 # Flask App and Global Variables
 app = Flask(__name__)
 model = None
-toggle_samples = False
 embeddings, class_names = [], [] 
 class_color = {0: 'red', 1: 'green'} # Color for each class
-length_initial_embeddings = 0
+new_frame = 0
 
 def clear_directory(directory_path):
     """Remove all files in the specified directory."""
@@ -50,8 +49,8 @@ def clear_directory(directory_path):
                 print(f'Error deleting {file_path}: {e}')
                 
 def initialize_model():
-    """Load and initialize the ResNet-50 model."""
-    model = resnet50(num_classes=NUM_CLASSES)
+    """Load and initialize the ResNet-18 model."""
+    model = resnet18(num_classes=NUM_CLASSES)
     model = torch.nn.Sequential(*list(model.children())[:-1])  # Remove final classification layer
     
     try:
@@ -135,10 +134,11 @@ def upload():
     if 'frame' not in request.files:
         return "No file part", 400
     
-    global embeddings, class_names
+    global embeddings, class_names, new_frame
     frame = request.files['frame']
     class_name = int(request.form['class']) # Get the class name from the form
-    filename = f"{len(embeddings)-1}.jpg" # Save the frame with a unique name
+    filename = f"{new_frame}.jpg" # Save the frame with a unique name
+    new_frame += 1
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     
     frame.save(filepath)
