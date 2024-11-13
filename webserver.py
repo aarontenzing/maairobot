@@ -17,12 +17,9 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from PIL import Image
 import numpy as np
 import torch
-from torchvision.models import resnet50
+from torchvision.models import resnet18, resnet50
 from torchvision import transforms
 import plotly.graph_objs as go
-
-# curl -X POST http://127.0.0.1:5000/upload -F "frame=@/home/tenzing/Pictures/flower2.jpg"
-# op de client run: sudo python3 run.py resnet50_retrained_grass_flower.rknn 0
 
 # Constants
 CHECKPOINT_PATH = 'models/resnet50_weights_best_acc.tar'  
@@ -40,6 +37,8 @@ length_initial_embeddings = 0
 
 def clear_directory(directory_path):
     """Remove all files in the specified directory."""
+    if not os.path.exists(directory_path):
+        os.makedirs(directory_path)
     for filename in os.listdir(directory_path):
         file_path = os.path.join(directory_path, filename)
         if os.path.isfile(file_path):

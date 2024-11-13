@@ -1,20 +1,25 @@
 import os
 import json
 from PIL import Image
+import cv2 as cv
 from collections import OrderedDict
 import numpy as np
+from sklearn.decomposition import PCA
+import pickle
 
 import torch
-from torchvision.models import resnet50
+from torchvision.models import resnet18
 from torchvision import transforms
 
 def preprocess_image(image):
     preprocess = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
+        transforms.Resize(256),                # Resize for more flexibility in cropping
+        transforms.CenterCrop(224),            # Center crop to 224x224 (matches ResNet50)
+        transforms.ToTensor(),                 # Convert to tensor
+        transforms.Normalize(                   # Normalize with ResNet50's mean and std
+            mean=[0.485, 0.456, 0.406], 
+            std=[0.229, 0.224, 0.225]
+        )
     ])
     
     image_tensor  = preprocess(image)
@@ -29,18 +34,18 @@ def encoder(model, input_tensor):
     return embedding
 
 if __name__ == "__main__":
-    json_data = []
+    embeddings = []
     directory_samples = "samples"
     samples = sorted(os.listdir(directory_samples), key=lambda x: int(x.split('.')[0]))
-    print(f"Samples {samples}: len {len(samples)}")
+    print(f"Samples {samples[:5]}: len {len(samples)}")
     
     # Initialize model
     print("Initializing model...")
-    checkpoint_path = 'resnet50_weights_best_acc.tar'  # Path to the PyTorch checkpoint file
+    checkpoint_path = 'resnet18_weights_best_acc.tar'  # Path to the PyTorch checkpoint file
     dir_path_model = 'models/'
     num_classes = 1081  # Number of classes for the Pl@ntNet-300K dataset
 
-    model = resnet50(num_classes=num_classes)
+    model = resnet18(num_classes=num_classes)
     model = torch.nn.Sequential(*(list(model.children())[:-1]))  # Keep all layers except the last one
 
     # Load the checkpoint
@@ -57,6 +62,7 @@ if __name__ == "__main__":
         # Load the adjusted state_dict into the model
         model.load_state_dict(new_state_dict, strict=False)
         print("Checkpoint loaded successfully.")
+
     except Exception as e:
         print(f"Error loading checkpoint: {e}")
         exit(1)
@@ -64,18 +70,19 @@ if __name__ == "__main__":
     print("Encoding frames...")
     for i, filename in enumerate(samples):
         frame = Image.open("samples/" + filename)
-        input_tensor = preprocess_image(frame)
+        width, height = frame.size
+        cropped_img = frame.crop((0, 200, width, height))  # (left, upper, right, lower) bounds
+        input_tensor = preprocess_image(cropped_img)
         features = encoder(model, input_tensor)
+        embeddings.append(features.cpu().numpy().flatten().tolist())
 
-        # write to json
-        data = {
-            "filename": f"{i}.jpg",
-            "feature": features.cpu().numpy().flatten().tolist()
-        }
-        json_data.append(data)
+    print("Fitting PCA model...")
+    pca = PCA(n_components=2)
+    pca.fit(embeddings)
+    # Save the PCA model to a file
+    with open('pca_model.pkl', 'wb') as f:
+        pickle.dump(pca, f)
     
-    print("Writing data to json...")
-    with open("embeddings.json", 'w') as json_file:
-        json.dump(json_data, json_file, indent=4)  # Write with pretty printing
+    print("PCA model saved successfully.")
 
     
