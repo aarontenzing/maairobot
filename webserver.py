@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import pickle as pkl
 
 from flask import Flask, flash, request, render_template, redirect, url_for
 from werkzeug.utils import secure_filename
@@ -85,41 +86,37 @@ def preprocess_image(image):
 def load_image(img_path, target_size=None):
     """Load and optionally resize an image for embedding visualization."""
     img = Image.open(img_path)
+    width, height = img.size
+    img = img.crop((0, 150, width, height)) # crop b0ttom part of the image
     if target_size:
         img = img.resize(target_size)
+        
     return np.array(img)
         
-def visualize_embeddings_2d(embeddings, samples_vis=False):
+def visualize_embeddings_2d(embeddings):
     """Visualize 2D embeddings using PCA and Matplotlib."""
-    features = pca.transform(embeddings)  # Transform the embeddings using PCA
-    plt.figure(figsize=(10, 10))
-    
-    def add_thumbnail(image_path, x, y, frame_color=None):
-        """Add thumbnail images to plot points."""
-        try:
-            plt.scatter(x, y, alpha=0)  # Hide the original points
-            img = load_image(image_path, target_size=(60, 60))
-            imagebox = OffsetImage(img, zoom=0.8)
-            ab = AnnotationBbox(imagebox, (x, y), frameon=bool(frame_color), pad=0.1, bboxprops=dict(edgecolor=frame_color, linewidth=2) if frame_color else None)
-            plt.gca().add_artist(ab)
-        except Exception as e:
-            print(f"Error loading image {image_path}: {e}")
-    
-    # Inital embeddings are the samples
-    if samples_vis:
-        sample_files = sorted(os.listdir("samples"), key=lambda x: int(x.split('.')[0]))
-        print(f"Initial embeddings length: {length_embeddings}, Sample files length: {len(sample_files)}")
+    if len(embeddings) != 0:
+        features = pca.transform(embeddings)  # Transform the embeddings using PCA
+        plt.figure(figsize=(10, 10))
+        
+        def add_thumbnail(image_path, x, y, frame_color=None):
+            """Add thumbnail images to plot points."""
+            try:
+                plt.scatter(x, y, alpha=0)  # Hide the original points
+                img = load_image(image_path, target_size=(60, 60))
+                imagebox = OffsetImage(img, zoom=0.8)
+                ab = AnnotationBbox(imagebox, (x, y), frameon=bool(frame_color), pad=0.1, bboxprops=dict(edgecolor=frame_color, linewidth=2) if frame_color else None)
+                plt.gca().add_artist(ab)
+            except Exception as e:
+                print(f"Error loading image {image_path}: {e}")
 
-        for idx, point in enumerate(features[:length_embeddings]):
-            add_thumbnail(os.path.join("samples", sample_files[idx]), point[0], point[1])
-
-    # Add new frames to the plot
-    frame_files = sorted(os.listdir(UPLOAD_FOLDER), key=lambda x: int(x.split('.')[0]))
-    print("Images in frames directory: ", frame_files)
-    if frame_files != []:
-        for idx, point in enumerate(features[length_embeddings:]):
-            frame_color = class_color.get(class_names[idx] if idx == len(features[length_embeddings:]) - 1 else None)
-            add_thumbnail(os.path.join(UPLOAD_FOLDER, frame_files[idx]), point[0], point[1], frame_color)
+        # Add new frames to the plot
+        frame_files = sorted(os.listdir(UPLOAD_FOLDER), key=lambda x: int(x.split('.')[0]))
+        print("Images in frames directory: ", frame_files)
+        if frame_files != []:
+            for idx, point in enumerate(features):
+                frame_color = class_color.get(class_names[idx] if idx == len(features) - 1 else None) # Color for the new frame
+                add_thumbnail(os.path.join(UPLOAD_FOLDER, frame_files[idx]), point[0], point[1], frame_color)
         
     plt.title("Image Embeddings")
     plt.xlabel("Dimension 1")
@@ -133,23 +130,15 @@ def visualize_embeddings_2d(embeddings, samples_vis=False):
 def home():
     return render_template("index.html")
 
-@app.route("/toggle", methods=['POST'])
-def toggle():
-    global toggle_samples, embeddings
-    toggle_samples = not toggle_samples
-    print(f"Toggle samples: {toggle_samples}")
-    visualize_embeddings_2d(embeddings, samples_vis=toggle_samples)
-    return redirect(url_for('home'))   
-
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'frame' not in request.files:
         return "No file part", 400
     
-    global embeddings, class_names, toggle_samples
+    global embeddings, class_names
     frame = request.files['frame']
     class_name = int(request.form['class']) # Get the class name from the form
-    filename = f"{len(embeddings)-length_embeddings}.jpg" # Save the frame with a unique name
+    filename = f"{len(embeddings)-1}.jpg" # Save the frame with a unique name
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     
     frame.save(filepath)
@@ -160,44 +149,25 @@ def upload():
     embeddings.append(encode_image(image_tensor))
     
     # Check if the sliding window size is reached
-    if len(embeddings) > (length_embeddings + SLIDING_WINDOW_SIZE): 
+    if len(embeddings) > SLIDING_WINDOW_SIZE: 
         oldest_frame = sorted(os.listdir(UPLOAD_FOLDER), key=lambda x: int(x.split('.')[0]))[0] # Remove oldest from frames directory
         os.remove(os.path.join(UPLOAD_FOLDER, oldest_frame)) # Remove oldest from frames directory
         print(f"Removed oldest frame: {oldest_frame}")
-        embeddings.pop(length_embeddings) # Remove oldest from embeddings list
+        embeddings.pop(0) # Remove oldest from embeddings list
         class_names.pop(0) # Remove oldest from class names list
         
-    visualize_embeddings_2d(embeddings, samples_vis=toggle_samples) 
-    return redirect(url_for('home'))       
-
-@app.route('/reset', methods=['POST'])
-def reset():
-    global embeddings, class_names
-    
-    if len(embeddings) == length_embeddings:
-        print("Nothing to reset.")
-        return redirect(url_for('home'))
-    
-    # Resetting the embeddings and class names
-    print(f"Resizing embeddings vector with length {len(embeddings)}, to initial length of {length_embeddings}.")
-    embeddings = embeddings[:length_embeddings]
-    class_names = []
-    clear_directory(UPLOAD_FOLDER) # Clear directory of frames
-    visualize_embeddings_2d(embeddings, samples_vis=toggle_samples) 
-    return redirect(url_for('home'))       
+    visualize_embeddings_2d(embeddings) 
+    return redirect(url_for('home'))            
 
 if __name__ == "__main__":
     model = initialize_model() # Load the PlantNet model and weights
     pca = PCA(n_components=2)
-
-    # Load embeddings from JSON file for visualization
-    with open("embeddings.json", 'r') as json_file:
-        sample_data = json.load(json_file)
-    embeddings = [item['feature'] for item in sample_data]
     
-    pca.fit(embeddings) # Fit PCA on the embeddings
-    length_embeddings = len(embeddings) # Initial length of embeddings
-        
-    clear_directory(UPLOAD_FOLDER) # Remove intially captured frames from the directory
-    visualize_embeddings_2d(embeddings, samples_vis=False) # Visualize the embeddings first
+    # Load PCA model
+    with open("pca_model.pkl", 'rb') as file:
+        pca = pkl.load(file)
+    
+    clear_directory(UPLOAD_FOLDER) # Clear the frames directory
+    visualize_embeddings_2d(embeddings) # Visualize the embeddings first
+    
     app.run(host="0.0.0.0", debug=True)

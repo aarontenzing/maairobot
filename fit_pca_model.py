@@ -44,7 +44,6 @@ if __name__ == "__main__":
     checkpoint_path = 'resnet18_weights_best_acc.tar'  # Path to the PyTorch checkpoint file
     dir_path_model = 'models/'
     num_classes = 1081  # Number of classes for the Pl@ntNet-300K dataset
-
     model = resnet18(num_classes=num_classes)
     model = torch.nn.Sequential(*(list(model.children())[:-1]))  # Keep all layers except the last one
 
@@ -70,9 +69,7 @@ if __name__ == "__main__":
     print("Encoding frames...")
     for i, filename in enumerate(samples):
         frame = Image.open("samples/" + filename)
-        width, height = frame.size
-        cropped_img = frame.crop((0, 200, width, height))  # (left, upper, right, lower) bounds
-        input_tensor = preprocess_image(cropped_img)
+        input_tensor = preprocess_image(frame)
         features = encoder(model, input_tensor)
         embeddings.append(features.cpu().numpy().flatten().tolist())
 

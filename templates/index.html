@@ -5,21 +5,6 @@
 
 <h1>2D embeddings space</h1>
 
-<table>
-    <tr>
-        <td>
-            <form action="{{ url_for('toggle') }}" method="post">
-                <button class="btn btn-outline-primary" type="submit">{{ "Show initial samples" }}</button>
-            </form>
-        </td>
-        <td>
-            <form action="{{ url_for('reset') }}" method="post">
-                <button class="btn btn-outline-primary" type="submit">{{ "Reset embeddings" }}</button>
-            </form>
-        </td>
-    </tr>
-</table>
-
 <img id="embeddings_plot" src="{{ url_for('static', filename='images/embeddings_plot.png') }}" alt="Embeddings Plot" width="900">
 
 <script>
@@ -28,7 +13,7 @@
         const img = document.getElementById('embeddings_plot');
         // Update the image src with a new timestamp to prevent caching
         img.src = "{{ url_for('static', filename='images/embeddings_plot.png') }}" + "?t=" + new Date().getTime();
-    }, 5000); // Refresh every 5 seconds
+    }, 1000); // Refresh every 5 seconds
 </script>
 
 {% endblock %}

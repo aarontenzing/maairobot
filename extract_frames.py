@@ -43,8 +43,7 @@ def save_video_frames(video_path, output_dir, frame_rate=30):
                 
             # Save the frame as a JPEG file
             frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-            frame = frame[200:400,200:400] # Crop the image
-            frame = cv.resize(frame, (224, 224))
+            frame = frame[150:,:] # Crop the image to remove the top part
             cv.imwrite(frame_filename, frame)
             print(f"Saved frame {frame_number} to {frame_filename}")
             count += 1
