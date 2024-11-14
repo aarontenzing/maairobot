@@ -23,8 +23,8 @@ from torchvision import transforms
 import plotly.graph_objs as go
 
 # Constants
-CHECKPOINT_PATH = 'models/resnet50_weights_best_acc.tar'  
-NUM_CLASSES = 1081  # Number of classes for the Pl@ntNet-300K dataset
+CHECKPOINT_PATH = 'models/resnet18_weights_best_acc.tar'  
+NUM_CLASSES = 1081  # Number of classes used for the Pl@ntNet-300K model
 SLIDING_WINDOW_SIZE = 20 # Number of frames to keep in the sliding window
 UPLOAD_FOLDER = 'frames' # Folder to store the uploaded frames
 
@@ -33,6 +33,8 @@ app = Flask(__name__)
 model = None
 embeddings, class_names = [], [] 
 class_color = {0: 'red', 1: 'green'} # Color for each class
+class_idx_to_name = {0: 'Flower', 1: 'Grass'} # Class names
+
 new_frame = 0
 
 def clear_directory(directory_path):
@@ -96,12 +98,12 @@ def visualize_embeddings_2d(embeddings):
     """Visualize 2D embeddings using PCA and Matplotlib."""
     if len(embeddings) != 0:
         features = pca.transform(embeddings)  # Transform the embeddings using PCA
-        plt.figure(figsize=(10, 10))
+        plt.figure(figsize=(10, 10), dpi=200)
         
-        def add_thumbnail(image_path, x, y, frame_color=None):
+        def add_thumbnail(image_path, x, y, frame_color=None, class_name=None):
             """Add thumbnail images to plot points."""
             try:
-                plt.scatter(x, y, alpha=0)  # Hide the original points
+                plt.scatter(x, y, alpha=0, label=class_name)  # Hide the original points
                 img = load_image(image_path, target_size=(60, 60))
                 imagebox = OffsetImage(img, zoom=0.8)
                 ab = AnnotationBbox(imagebox, (x, y), frameon=bool(frame_color), pad=0.1, bboxprops=dict(edgecolor=frame_color, linewidth=2) if frame_color else None)
@@ -112,17 +114,22 @@ def visualize_embeddings_2d(embeddings):
         # Add new frames to the plot
         frame_files = sorted(os.listdir(UPLOAD_FOLDER), key=lambda x: int(x.split('.')[0]))
         print("Images in frames directory: ", frame_files)
-        if frame_files != []:
+        
+        if frame_files: 
             for idx, point in enumerate(features):
                 frame_color = class_color.get(class_names[idx] if idx == len(features) - 1 else None) # Color for the new frame
-                add_thumbnail(os.path.join(UPLOAD_FOLDER, frame_files[idx]), point[0], point[1], frame_color)
-        
-    plt.title("Image Embeddings")
-    plt.xlabel("Dimension 1")
-    plt.ylabel("Dimension 2")
+                add_thumbnail(os.path.join(UPLOAD_FOLDER, frame_files[idx]), point[0], point[1], frame_color, class_idx_to_name[idx])
+                
+    plt.legend(title="Categories", loc='upper left', fontsize=12)
+    plt.title("Image Embeddings in 2D Space", fontsize=20)
+    plt.xlabel("Dimension 1", fontsize=16)
+    plt.ylabel("Dimension 2", fontsize=16)
+    plt.xticks(color='w')
+    plt.yticks(color='w')
+    plt.grid(True)
     plt.autoscale(True)
-    plt.grid()
-    plt.savefig(os.path.join('static/images', 'embeddings_plot.png'))
+    output_path = os.path.join('static/images', 'embeddings_plot.png')
+    plt.savefig(output_path, bbox_inches='tight', format='png')
     plt.close()
 
 @app.route("/")
