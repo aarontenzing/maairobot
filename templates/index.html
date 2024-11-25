@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Home Page{% endblock %}
+{% block title %} Home Page {% endblock %}
 
-{% block content %}     
+{% block content %}
 
-<img id="embeddings_plot" src="{{ url_for('static', filename='images/embeddings_plot.png') }}" alt="2D Embeddings Visualization" width="800">
+<h1>2D embeddings space</h1>
+
+<img id="embeddings_plot" src="{{ url_for('static', filename='images/embeddings_plot.png') }}" alt="Embeddings Plot" width="1000">
 
 <script>
     // Refresh the image every 5 seconds

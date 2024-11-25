@@ -10,3 +10,5 @@
 - sudo python3 run.py resnet50_retrained_grass_flower.rknn
 
 Example of POST request: curl -X POST http://127.0.0.1:5000/upload -F "frame=@/home/tenzing/Pictures/flower2.jpg" -F "class=1"
+
+PlantNet model chekcpoints: https://lab.plantnet.org/seafile/d/01ab6658dad6447c95ae/
