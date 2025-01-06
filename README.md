@@ -1,7 +1,7 @@
 ## Project Overzicht
 
 ### Hardware
-1. **Rock Pi 3A**: Draait een ResNet18-model voor eenvoudige classificatie (bloem vs. gras).
+1. **Rock Pi 3A**: Draait een ResNet18-model voor eenvoudige classificatie (bloem, gras).
 2. **Laptop**: 
    - Flask-webserver.
    - Embed afbeeldingen met behulp van een ResNet18 PlantNet-model.
