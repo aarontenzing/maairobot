@@ -24,7 +24,7 @@
   -  python3 -m venv .myvenv
   - source .myvenv/bin/activate
   - pip install -r requirements.txt
-  - Op de client `ROCK Pi 3A` installeer de [RKNN dependencies](https://github.com/airockchip/rknn-toolkit2) , best deze [guide](https://github.com/airockchip/rknn-toolkit2/blob/master/doc/01_Rockchip_RKNPU_Quick_Start_RKNN_SDK_V2.3.0_EN.pdf)volgen 
+  - Op de client `ROCK Pi 3A` installeer de [RKNN dependencies](https://github.com/airockchip/rknn-toolkit2) , best deze [guide](https://github.com/airockchip/rknn-toolkit2/blob/master/doc/01_Rockchip_RKNPU_Quick_Start_RKNN_SDK_V2.3.0_EN.pdf) volgen 
   - In de [repo](https://github.com/aarontenzing/Biobot-server) vind je een directory `client`, kopieer deze directory naar de `ROCK Pi 3A`
   - Run vervolgens: sudo python3 inference.py resnet18_flower_grass.rknn
   3. Set up WiFi communication webserver en client: 
