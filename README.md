@@ -39,7 +39,7 @@
 - Training van model via PyTorch, eenvoudig ResNet18, afbeelding van 640x480 steeds gecropt --> horizontale balk 640x330. 
 - Input resolutie is 224x224 
 - Converteer PyTorch-model eerst naar ONNX formaat [Tutorial](https://medium.com/@lahari.kethinedi/convert-custom-pytorch-model-to-onnx-9c7397366904)
-- Converteer ten slotte ONNX-model naar RKNN-formaat (RKNN model zoo -> resnet.py) -> Voorbeeld: `conversie_script.py`
+- Converteer ten slotte ONNX-model naar RKNN-formaat: in RKNN model zoo directory -> vervang `resnet.py` door `conversie_script.py` 
 
 ---
 ## Belangrijke Uitdagingen en Oplossingen
