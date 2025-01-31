@@ -1,71 +1,96 @@
 ## Project Overzicht
 
 ### Hardware
-1. **Rock Pi 3A**: Draait een ResNet18-model voor eenvoudige classificatie (bloem, gras).
+1. **Rock Pi 3A**: Runs a ResNet18 model for simple classification (flower, grass).
 2. **Laptop**: 
    - Flask-webserver.
-   - Embed afbeeldingen met behulp van een ResNet18 PlantNet-model.
-   - Dimensiereductie (PCA) om embeddings visueel weer te geven.
-3. **Communicatie**:
-   - Wifi-hotspot op laptop
-   - Rock Pi maakt automatisch verbinding met deze hotspot.
+   - Embed images using a ResNet18 PlantNet model.
+   - Dimensionality reduction (PCA) to visualize embeddings.
+3. **Communication**:
+   - WiFi hotspot on the laptop.
+   - Rock Pi automatically connects to this hotspot.
 4. **WS2812B Ledstrip**:
-   - **Rood**: Maaischijf uitgeschakeld.
-   - **Blauw met witte animatie**: Maaischijf actief.
+   - **Red**: Mowing disc disabled.
+   - **Blue with white animation**: Mowing disc active.
 
----
 ## How to set up
-1. **Set up the Flask Web Server**: 
-`python3 -m venv .myvenv`
-`source .myvenv/bin/activate`
-`pip install -r requirements.txt`
-`python3 webserver.py`
-2. **Set up the Client Grasrobot**
-`python3 -m venv .myvenv`
-`source .myvenv/bin/activate`
-`pip install -r requirements.txt`
-  - Op de client `ROCK Pi 3A` installeer de [RKNN dependencies](https://github.com/airockchip/rknn-toolkit2) -> best deze [guide](https://github.com/airockchip/rknn-toolkit2/blob/master/doc/01_Rockchip_RKNPU_Quick_Start_RKNN_SDK_V2.3.0_EN.pdf) volgen 
-  - In directory `client/` vind je de code die op de `ROCK Pi 3A` runt.
-  - Run vervolgens: `sudo python3 inference.py resnet18_flower_grass.rknn`
-  3. Set up WiFi communication webserver en client: 
-   - Maak WiFi hotspot op laptop:  (SSID: `biobot`, Wachtwoord: `biobot123biobot`)
-   - `ROCK Pi 3A` verbindt normaal gezien automatisch met deze hotspot.
-   - Verander in `inference.py` script op client, het IP van de webserver naar het IP van de laptop
-  4. Run `webserver.py` op laptop.
+1. **Set up the Flask Web Server (Host Machine)**:
+
+Python version 3.12.3 
+
+```bash
+$ python3 -m venv .server
+
+$ source .server/bin/activate
+
+$ pip install -r requirements.txt
+
+$ python3 webserver.py
+```
+
+2. **Set up the Client Grasrobot (ROCK PI)**:
+
+```bash
+$ python3 -m venv .grasrobot
+
+$ source .grasrobot/bin/activate
+
+$ pip install -r requirements.txt
+```
+
+  - On the client `ROCK Pi 3A`, install the [RKNN dependencies](https://github.com/airockchip/rknn-toolkit2). Follow this [guide](https://github.com/airockchip/rknn-toolkit2/blob/master/doc/01_Rockchip_RKNPU_Quick_Start_RKNN_SDK_V2.3.0_EN.pdf)!
+  - In directory `client/`, you will find the code that runs on the `ROCK Pi 3A`.
+  Run the following command:
+  ```bash
+  $ sudo python3 inference.py resnet18_flower_grass.rknn
+  ```
+
+3. **Set up WiFi communication between webserver and client**:
+
+  - Create a WiFi hotspot on the laptop:  (SSID: `biobot`, Password: `biobot123biobot`)
+  - The `ROCK Pi 3A` should automatically connect to this hotspot.
+  - In the `inference.py` script on the client, change the web server IP to the laptop's IP. Then run the following command on the laptop:
+
+  ```bash
+  $ python3 webserver.py 
+  ```
  
----
-## Training Model en Bestanden
-- Model op de Rock Pi: `imagenet_best_model.rknn`.
-- Training van model via PyTorch, eenvoudig ResNet18, afbeelding van 640x480 steeds gecropt --> horizontale balk 640x330. 
-- Input resolutie is 224x224 
-- Converteer PyTorch-model eerst naar ONNX formaat [Tutorial](https://medium.com/@lahari.kethinedi/convert-custom-pytorch-model-to-onnx-9c7397366904)
-- Converteer ten slotte ONNX-model naar RKNN-formaat: in RKNN model zoo directory -> vervang `resnet.py` door `conversie_script.py` 
+## Training model 
+- The model is trained using PyTorch. It is a simple ResNet18 classifier trained on images of size 640x480. A horizontal crop of 640x330 is taken, and the images are resized to an input resolution of 224x224.
 
----
-## Belangrijke Uitdagingen en Oplossingen
+- Convert the PyTorch model to ONNX format first: [Tutorial](https://medium.com/@lahari.kethinedi/convert-custom-pytorch-model-to-onnx-9c7397366904)
+- Finally, convert the ONNX model to RKNN format so that the model can run on the Rock Pi NPU. 
+- Follow the **Rockchip RKNPU Quick Start Guide**: [Link to guide](https://github.com/airockchip/rknn-toolkit2/blob/master/doc/01_Rockchip_RKNPU_Quick_Start_RKNN_SDK_V2.3.0_EN.pdf).
+- Use the **rknn-toolkit2** to install dependencies: [Toolkit repo](https://github.com/airockchip/rknn-toolkit2/).
+- Refer to the **RKNN Model Zoo** for examples: [Model Zoo repo](https://github.com/airockchip/rknn_model_zoo).
 
-### 1. Wifi-communicatie met Rock Pi
-- **Probleem**: TP-link dongles werkten niet direct (plug-and-play).
-- **Oplossing**:
-  - Manuele installatie van device drivers in de kernel.
-  - Gebruik van een lijst met Linux-compatibele wifi-adapters: [Morrownr USB WiFi repo](https://github.com/morrownr/USB-WiFi/blob/main/home/USB_WiFi_Adapters_that_are_supported_with_Linux_in-kernel_drivers.md).
+Change the path to the ONNX file and RKNN output in conversion_script.py:
+```python
+DEFAULT_ONNX_PATH = '../model/imagenet_best_model.onnx'
+DEFAULT_RKNN_PATH = '../model/imagenet_best_model.rknn'
+```
 
-### 2. PyTorch Model op Rockchip NPU
-- **Converteer naar RKNN Formaat**:
-  - Volg de **Rockchip RKNPU Quick Start Guide**: [Link naar handleiding](https://github.com/airockchip/rknn-toolkit2/blob/master/doc/01_Rockchip_RKNPU_Quick_Start_RKNN_SDK_V2.3.0_EN.pdf).
-  - Gebruik de **rknn-toolkit2** voor installatie van dependencies: [Toolkit repo](https://github.com/airockchip/rknn-toolkit2/).
-  - Raadpleeg de **RKNN Model Zoo** voor voorbeelden: [Model Zoo repo](https://github.com/airockchip/rknn_model_zoo).
-- **Modelconversieproces**:
-  1. Converteer PyTorch-model naar ONNX: [Tutorial](https://medium.com/@lahari.kethinedi/convert-custom-pytorch-model-to-onnx-9c7397366904).
-  2. Converteer ONNX-model naar RKNN-formaat (voorbeeld in RKNN model zoo resnet.py).
+In the RKNN Model Zoo directory, replace `resnet.py` with `conversion_script.py`.
 
-### 3. Aansturing van WS2812B Ledstrip via GPIO
-- **Uitdaging**: Continue animatieloop blokkeert andere processen. Aansturen via GPIO pins Rock.
-- **Oplossing**: Multiprocessing implementeren:
-  - Gebruik de **multiprocessing** library om parallelle processen te draaien: [Documentatie](https://docs.python.org/3/library/multiprocessing.html).
-  - Maak een **Queue** aan om commando’s naar de led-functie te sturen: [Queue documentatie](https://docs.python.org/3/library/queue.html#queue-objects).
-- **Oplossing**: NeoPixel library op Rock PI:
-  - Aansturen van RGB LEDs werkt enkel via SPI pin,  [Schema GPIO pins](https://wiki.radxa.com/Rock3/hardware/3a/gpio) dus pin 19.  Deze moet je eerst activeren in overlay file, use [NeoPixels with rock](https://forum.radxa.com/t/how-to-use-neopixels-with-rock-pi-s/10492)
+## Dataset
+
+The dataset for flower and grass classification can be found on the Apollo at `/avc/datasets/maairobot` or `/apollo/datasets/maairobot`.
+
+## Key Challenges and Solutions
+
+### WiFi Communication with Rock Pi
+- **Problem**: TP-link dongles did not work out of the box (plug-and-play).
+- **Solution**:
+  - Manually install device drivers in the kernel.
+  - Use a list of Linux-compatible WiFi adapters: [Morrownr USB WiFi repo](https://github.com/morrownr/USB-WiFi/blob/main/home/USB_WiFi_Adapters_that_are_supported_with_Linux_in-kernel_drivers.md).
+
+### Controlling the WS2812B LED Strip via GPIO
+- **Challenge**: Continuous animation loop blocks other processes. Controlling via GPIO pins on the Rock Pi.
+- **Solution**: Implement multiprocessing:
+  - Use the multiprocessing library to run parallel processes: [Documentation](https://docs.python.org/3/library/multiprocessing.html).
+  - Create a Queue to send commands to the LED function: [Queue documentation](https://docs.python.org/3/library/queue.html#queue-objects).
+- **Solution**: NeoPixel library on Rock Pi:
+  - Controlling RGB LEDs only works via the SPI pin (pin 19). Refer to the [GPIO pin diagram](https://wiki.radxa.com/Rock3/hardware/3a/gpio). This pin must first be activated in the overlay file. Use [NeoPixels with rock](https://forum.radxa.com/t/how-to-use-neopixels-with-rock-pi-s/10492).
 
 ---
 
