@@ -16,27 +16,30 @@
 ---
 ## How to set up
 1. **Set up the Flask Web Server**: 
-  - python3 -m venv .myvenv
-  - source .myvenv/bin/activate
-  - pip install -r requirements.txt
-  - python3 webserver.py
+`python3 -m venv .myvenv`
+`source .myvenv/bin/activate`
+`pip install -r requirements.txt`
+`python3 webserver.py`
 2. **Set up the Client Grasrobot**
-  -  python3 -m venv .myvenv
-  - source .myvenv/bin/activate
-  - pip install -r requirements.txt
-  - Op de client `ROCK Pi 3A` installeer de [RKNN dependencies](https://github.com/airockchip/rknn-toolkit2) , best deze [guide](https://github.com/airockchip/rknn-toolkit2/blob/master/doc/01_Rockchip_RKNPU_Quick_Start_RKNN_SDK_V2.3.0_EN.pdf) volgen 
-  - In de [repo](https://github.com/aarontenzing/Biobot-server) vind je een directory `client`, kopieer deze directory naar de `ROCK Pi 3A`
-  - Run vervolgens: sudo python3 inference.py resnet18_flower_grass.rknn
+`python3 -m venv .myvenv`
+`source .myvenv/bin/activate`
+`pip install -r requirements.txt`
+  - Op de client `ROCK Pi 3A` installeer de [RKNN dependencies](https://github.com/airockchip/rknn-toolkit2) -> best deze [guide](https://github.com/airockchip/rknn-toolkit2/blob/master/doc/01_Rockchip_RKNPU_Quick_Start_RKNN_SDK_V2.3.0_EN.pdf) volgen 
+  - In directory `client/` vind je de code die op de `ROCK Pi 3A` runt.
+  - Run vervolgens: `sudo python3 inference.py resnet18_flower_grass.rknn`
   3. Set up WiFi communication webserver en client: 
    - Maak WiFi hotspot op laptop:  (SSID: `biobot`, Wachtwoord: `biobot123biobot`)
-   - Laat `ROCK Pi 3A` hiermee verbinden:
-   - Verander inference.py op client, het IP van de webserver naar het IP van de laptop
+   - `ROCK Pi 3A` verbindt normaal gezien automatisch met deze hotspot.
+   - Verander in `inference.py` script op client, het IP van de webserver naar het IP van de laptop
+  4. Run `webserver.py` op laptop.
  
 ---
-## Model en Bestanden
+## Training Model en Bestanden
 - Model op de Rock Pi: `imagenet_best_model.rknn`.
 - Training van model via PyTorch, eenvoudig ResNet18, afbeelding van 640x480 steeds gecropt --> horizontale balk 640x330. 
 - Input resolutie is 224x224 
+- Converteer PyTorch-model eerst naar ONNX formaat [Tutorial](https://medium.com/@lahari.kethinedi/convert-custom-pytorch-model-to-onnx-9c7397366904)
+- Converteer ten slotte ONNX-model naar RKNN-formaat (RKNN model zoo -> resnet.py) -> Voorbeeld: `conversie_script.py`
 
 ---
 ## Belangrijke Uitdagingen en Oplossingen
